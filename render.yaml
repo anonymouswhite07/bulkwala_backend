@@ -3,10 +3,52 @@ services:
     name: bulkwala-backend
     env: node
     plan: free
-    buildCommand: pnpm install --frozen-lockfile
-    startCommand: pnpm start
+    buildCommand: npm install
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 5000
+        value: 10000
+      - key: MONGO_URI
+        sync: false
+      - key: ACCESS_TOKEN_SECRET
+        sync: false
+      - key: REFRESH_TOKEN_SECRET
+        sync: false
+      - key: ACCESS_TOKEN_EXPIRES_IN
+        value: 15m
+      - key: REFRESH_TOKEN_EXPIRES_IN
+        value: 15d
+      - key: FRONTEND_URL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_PHONE_NUMBER
+        sync: false
+      - key: TWILIO_VERIFY_SERVICE_SID
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_SECRET
+        sync: false
+      - key: IMAGEKIT_PUBLIC_KEY
+        sync: false
+      - key: IMAGEKIT_PRIVATE_KEY
+        sync: false
+      - key: IMAGEKIT_URL_ENDPOINT
+        sync: false
+      - key: DELHIVERY_API_TOKEN
+        sync: false
+      - key: DELHIVERY_API_URL
+        value: https://track.delhivery.com/api
+      - key: DELHIVERY_PICKUP_NAME
+        value: "Bulkwala Warehouse"
+      - key: DELHIVERY_WEBHOOK_TOKEN
+        sync: false
+      - key: VERIFICATION_TOKEN_EXPIRES_IN
+        value: 15m
