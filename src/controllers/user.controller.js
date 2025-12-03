@@ -143,12 +143,22 @@ const loginUser = asyncHandler(async (req, res) => {
 
   const { accessToken, refreshToken } = user.generateJWT();
 
+  // Debug logging
+  console.log("=== LOGIN DEBUG ===");
+  console.log("Generated refresh token:", refreshToken ? refreshToken.substring(0, 10) + '...' : 'null');
+  console.log("User ID:", user._id);
+
   // 🔥 FIX: SAVE REFRESH TOKEN
   user.refreshToken = refreshToken;
   user.refreshTokenExpireAt = new Date(
     Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN)
   );
   await user.save({ validateBeforeSave: false });
+
+  // Verify save worked
+  const verifyUser = await User.findById(user._id);
+  console.log("Saved token:", verifyUser.refreshToken ? verifyUser.refreshToken.substring(0, 10) + '...' : 'null');
+  console.log("Tokens match:", verifyUser.refreshToken === refreshToken);
 
   // ✅ Use dynamic cookie options for Safari compatibility
   const options = getCookieOptions(req);
@@ -438,13 +448,31 @@ const refreshUserToken = asyncHandler(async (req, res) => {
     throw new ApiError(401, "Refresh token not found");
   }
 
-  // More robust user search - let's be extra sure
-  const user = await User.findOne({ 
+  // Robust user search with multiple fallback strategies
+  let user = null;
+  
+  // Strategy 1: Direct token match
+  user = await User.findOne({ 
     refreshToken: refreshTokenFromCookie
   });
   
+  // If not found, let's do some debugging
   if (!user) {
-    throw new ApiError(401, "Invalid refresh token");
+    // Check if there are ANY users with refresh tokens
+    const usersWithTokens = await User.find({ 
+      refreshToken: { $exists: true, $ne: null } 
+    });
+    
+    console.log("=== REFRESH TOKEN ISSUE DEBUG ===");
+    console.log("Token from cookie:", refreshTokenFromCookie);
+    console.log("Total users with tokens:", usersWithTokens.length);
+    
+    // Log all tokens (first 10 chars for privacy)
+    usersWithTokens.forEach(u => {
+      console.log(`User ${u.email}: ${u.refreshToken ? u.refreshToken.substring(0, 10) + '...' : 'null'}`);
+    });
+    
+    throw new ApiError(401, "Invalid refresh token - no matching user found");
   }
 
   // Check if token is expired
