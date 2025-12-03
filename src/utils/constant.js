@@ -11,7 +11,7 @@ export const getCookieOptions = (req) => {
     sameSite: "none", // Required for iOS Safari cross-site cookies
     path: "/",
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days to match refresh token expiry
-    domain: ".bulkwala.com", // Share cookies across subdomains
+    domain: ".frontendbulkwala.vercel.app", // Share cookies across subdomains
   };
 
   return options;
