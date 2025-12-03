@@ -466,27 +466,68 @@ const refreshUserToken = asyncHandler(async (req, res) => {
   // Also check if cookies are in the headers directly
   console.log("Cookie header:", req.headers.cookie);
   
-  // Try to get refresh token from cookie first, then from body as fallback
-  let refreshTokenFromCookie = req.cookies.refreshToken;
+  // Try to get refresh token from multiple sources
+  let refreshTokenValue = null;
   
-  // If not in cookie, try to get from request body (fallback for Safari)
-  if (!refreshTokenFromCookie && req.body?.refreshToken) {
+  // 1. From cookies (standard approach)
+  if (req.cookies.refreshToken) {
+    console.log("✅ USING REFRESH TOKEN FROM COOKIES");
+    refreshTokenValue = req.cookies.refreshToken;
+  }
+  // 2. From request body (fallback for Safari)
+  else if (req.body?.refreshToken) {
     console.log("⚠️ USING REFRESH TOKEN FROM REQUEST BODY (FALLBACK)");
-    refreshTokenFromCookie = req.body.refreshToken;
+    refreshTokenValue = req.body.refreshToken;
+  }
+  // 3. From Authorization header (Bearer token)
+  else if (req.headers.authorization?.startsWith('Bearer ')) {
+    console.log("⚠️ USING REFRESH TOKEN FROM AUTHORIZATION HEADER (FALLBACK)");
+    refreshTokenValue = req.headers.authorization.substring(7); // Remove 'Bearer '
   }
   
-  if (!refreshTokenFromCookie) {
-    console.log("❌ NO REFRESH TOKEN FOUND IN COOKIES OR REQUEST BODY");
+  if (!refreshTokenValue) {
+    console.log("❌ NO REFRESH TOKEN FOUND IN ANY SOURCE");
     throw new ApiError(401, "Refresh token not found");
   }
 
-  const user = await User.findOne({ refreshToken: refreshTokenFromCookie });
+  const user = await User.findOne({ refreshToken: refreshTokenValue });
   if (!user) {
+    // Check if it's a used token (rotation security)
+    const usedTokenUser = await User.findOne({ 
+      "usedRefreshTokens.token": refreshTokenValue 
+    });
+    
+    if (usedTokenUser) {
+      // Token reuse detected - possible attack, invalidate all tokens
+      usedTokenUser.usedRefreshTokens.push({
+        token: refreshTokenValue,
+        usedAt: new Date()
+      });
+      usedTokenUser.refreshToken = null;
+      usedTokenUser.refreshTokenExpireAt = null;
+      await usedTokenUser.save({ validateBeforeSave: false });
+      
+      console.log("🚨 REFRESH TOKEN REUSE DETECTED - SECURITY ALERT");
+      throw new ApiError(401, "Invalid refresh token. Security violation detected.");
+    }
+    
     throw new ApiError(401, "Invalid refresh token");
   }
 
   if (user.refreshTokenExpireAt < new Date()) {
     throw new ApiError(401, "Refresh token expired. Please log in again.");
+  }
+
+  // Add current token to used tokens list (rotation)
+  user.usedRefreshTokens = user.usedRefreshTokens || [];
+  user.usedRefreshTokens.push({
+    token: refreshTokenValue,
+    usedAt: new Date()
+  });
+  
+  // Clean up old used tokens (keep only last 10)
+  if (user.usedRefreshTokens.length > 10) {
+    user.usedRefreshTokens = user.usedRefreshTokens.slice(-10);
   }
 
   // Generate new tokens
@@ -530,6 +571,7 @@ const logoutUser = asyncHandler(async (req, res) => {
   if (user) {
     user.refreshToken = null;
     user.refreshTokenExpireAt = null;
+    user.usedRefreshTokens = [];
     await user.save({ validateBeforeSave: false });
   }
 
@@ -539,7 +581,7 @@ const logoutUser = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, null, "User logged out successfully"));
+    .json(new ApiResponse(200, null, "User logged out successfully. Please clear any stored tokens from localStorage."));
 });
 
 const applyForSeller = asyncHandler(async (req, res) => {

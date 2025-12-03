@@ -79,6 +79,11 @@ const userSchema = new Schema(
     },
     refreshToken: String,
     refreshTokenExpireAt: Date,
+    // Used to track recently used refresh tokens for rotation security
+    usedRefreshTokens: [{
+      token: String,
+      usedAt: { type: Date, default: Date.now }
+    }],
 
     resetPasswordToken: String,
     resetPasswordExpiresAt: Date,

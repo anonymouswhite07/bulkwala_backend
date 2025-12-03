@@ -1,14 +1,12 @@
 // ===== UNIVERSAL COOKIE HANDLER =====
 export const getCookieOptions = (req) => {
-  // Enhanced cookie configuration for Safari compatibility
-  // Detect Safari to handle cookie restrictions properly
-  const userAgent = req.headers['user-agent'] || '';
-  const isSafari = /Safari/i.test(userAgent) && !/Chrome/i.test(userAgent);
-  
+  // Standardized cookie configuration for all environments
+  // SameSite must be set to "none" and secure to true unconditionally
+  // Remove domain property to make cookies host-only for better cross-site compatibility
   const options = {
     httpOnly: true,
     secure: true, // Always true for consistent behavior across all environments
-    sameSite: isSafari ? "lax" : "none", // Use lax for Safari, none for others
+    sameSite: "none", // Required for cross-site cookies
     path: "/",
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     // Note: Not setting domain property to make cookies host-only
