@@ -1,21 +1,17 @@
 // ===== UNIVERSAL COOKIE HANDLER =====
 export const getCookieOptions = (req) => {
-  // Decide whether cookie should be secure
-  const forwardedProto = (req && req.headers && req.headers["x-forwarded-proto"]) || "";
-  const isSecureRequest = (req && req.secure) || forwardedProto.includes("https") || process.env.NODE_ENV === "production";
-
-  // Allow optional cookie domain via env; if not set, cookie will be host-only which is usually correct
-  const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
-
+  // For iOS Safari compatibility, we need to ensure secure=true and sameSite=none
+  // in production environments, regardless of the request protocol
+  
+  // Always use secure cookies for consistent behavior across all environments
+  // This is critical for iOS Safari to accept and send cookies with SameSite=None
   const options = {
     httpOnly: true,
-    secure: Boolean(isSecureRequest),
-    // Use 'none' for cross-site cookies in production where secure=true is expected.
-    // Use 'lax' during local development to avoid secure cookie issues over http.
-    sameSite: isSecureRequest ? "none" : "lax",
+    secure: true, // Always true for consistent behavior across all environments
+    sameSite: "none", // Required for iOS Safari cross-site cookies
     path: "/",
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    domain: cookieDomain,
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days to match refresh token expiry
+    domain: ".bulkwala.com", // Share cookies across subdomains
   };
 
   return options;
