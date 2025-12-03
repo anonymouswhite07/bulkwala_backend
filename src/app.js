@@ -22,37 +22,12 @@ import { globalErrorHandler } from "./middleware/globalError.middleware.js";
 const app = express();
 app.set("trust proxy", 1);
 
-// Parse array from .env
-let allowedOrigins = [];
-
-try {
-  allowedOrigins = JSON.parse(process.env.FRONTEND_URL);
-} catch (err) {
-  console.error("❌ FRONTEND_URL is not a valid JSON array");
-  allowedOrigins = ["http://localhost:5173"];
-}
-
+// Simplified CORS configuration for better iOS/Safari compatibility
 app.use(
   cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true); // Mobile apps / Postman allowed
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      return callback(new Error("❌ CORS blocked: " + origin));
-    },
+    origin: JSON.parse(process.env.FRONTEND_URL),
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "X-Requested-With",
-      "Accept",
-      "Origin",
-    ],
-    exposedHeaders: ["Set-Cookie"],
   })
 );
 
