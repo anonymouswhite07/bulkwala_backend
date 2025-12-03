@@ -1,12 +1,18 @@
 // ===== UNIVERSAL COOKIE HANDLER =====
 export const getCookieOptions = (req) => {
-  // Standardized cookie configuration for all environments
-  // sameSite must be set to "none" and secure to true unconditionally
-  // Remove domain property to make cookies host-only for better cross-site compatibility
+  // Enhanced cookie configuration for iOS Safari compatibility
+  // Detect iOS Safari to handle cookie restrictions properly
+  const userAgent = req.headers['user-agent'] || '';
+  const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
+  const isSafari = /Safari/i.test(userAgent) && !/Chrome/i.test(userAgent);
+  
+  // For iOS Safari, we need special handling
+  const isIOSSafari = isIOS && isSafari;
+  
   const options = {
     httpOnly: true,
     secure: true, // Always true for consistent behavior across all environments
-    sameSite: "none", // Required for cross-site cookies
+    sameSite: isIOSSafari ? "none" : "lax", // Special handling for iOS Safari
     path: "/",
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     // Note: Not setting domain property to make cookies host-only
