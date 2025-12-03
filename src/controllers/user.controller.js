@@ -148,7 +148,18 @@ const loginUser = asyncHandler(async (req, res) => {
   user.refreshTokenExpireAt = new Date(
     Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN)
   );
+  
+  // Add debugging to ensure token is saved
+  console.log("=== LOGIN TOKEN SAVE DEBUG ===");
+  console.log("Generated refresh token:", refreshToken);
+  console.log("Token expiry:", user.refreshTokenExpireAt);
+  
   await user.save({ validateBeforeSave: false });
+  
+  // Verify it was saved
+  const updatedUser = await User.findById(user._id);
+  console.log("Saved token in DB:", updatedUser.refreshToken);
+  console.log("Tokens match:", updatedUser.refreshToken === refreshToken);
 
   // ✅ Use dynamic cookie options for Safari compatibility
   const options = getCookieOptions(req);
@@ -438,17 +449,34 @@ const refreshUserToken = asyncHandler(async (req, res) => {
     throw new ApiError(401, "Refresh token not found");
   }
 
-  // Let's also try to find by refreshToken to be sure
-  const user = await User.findOne({ refreshToken: refreshTokenFromCookie });
+  // More robust user search with additional logging
+  const user = await User.findOne({ 
+    refreshToken: refreshTokenFromCookie,
+    refreshTokenExpireAt: { $gt: new Date() } // Also check expiration in query
+  });
+  
   if (!user) {
-    // Extra debugging - let's see what tokens exist in the database
-    const usersWithTokens = await User.find({ refreshToken: { $exists: true, $ne: null } }, 'email refreshToken');
-    console.log("Users with refresh tokens in DB:", usersWithTokens);
+    // Let's check if there are any users with refresh tokens at all
+    const usersWithTokens = await User.find({ 
+      refreshToken: { $exists: true, $ne: null } 
+    }, 'email refreshToken refreshTokenExpireAt');
+    
+    console.log("=== REFRESH TOKEN DEBUG ===");
+    console.log("Token from cookie:", refreshTokenFromCookie);
+    console.log("Users with refresh tokens:", usersWithTokens.length);
+    console.log("All users with tokens:", usersWithTokens);
+    
+    // Also check if there's a user with this exact token but expired
+    const userWithExpiredToken = await User.findOne({ 
+      refreshToken: refreshTokenFromCookie 
+    });
+    
+    if (userWithExpiredToken) {
+      console.log("User found but token expired:", userWithExpiredToken.refreshTokenExpireAt < new Date());
+      throw new ApiError(401, "Refresh token expired. Please log in again.");
+    }
+    
     throw new ApiError(401, "Invalid refresh token");
-  }
-
-  if (user.refreshTokenExpireAt < new Date()) {
-    throw new ApiError(401, "Refresh token expired. Please log in again.");
   }
 
   // Generate new tokens
