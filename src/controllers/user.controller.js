@@ -142,8 +142,6 @@ const loginUser = asyncHandler(async (req, res) => {
   }
 
   const { accessToken, refreshToken } = user.generateJWT();
-  console.log("=== LOGIN DEBUG INFO ===");
-  console.log("Generated refresh token:", refreshToken);
 
   // 🔥 FIX: SAVE REFRESH TOKEN
   user.refreshToken = refreshToken;
@@ -151,11 +149,9 @@ const loginUser = asyncHandler(async (req, res) => {
     Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN)
   );
   await user.save({ validateBeforeSave: false });
-  console.log("Saved refresh token to database");
 
   // ✅ Use dynamic cookie options for Safari compatibility
   const options = getCookieOptions(req);
-  console.log("Cookie options:", options);
 
   return res
     .status(200)
@@ -191,8 +187,6 @@ const verifyOtpLogin = asyncHandler(async (req, res) => {
   if (!user) throw new ApiError(404, "User not found");
 
   const { accessToken, refreshToken } = user.generateJWT();
-  console.log("=== OTP LOGIN DEBUG INFO ===");
-  console.log("Generated refresh token:", refreshToken);
 
   user.refreshToken = refreshToken;
   user.refreshTokenExpireAt = new Date(
@@ -200,11 +194,9 @@ const verifyOtpLogin = asyncHandler(async (req, res) => {
   );
 
   await user.save({ validateBeforeSave: false });
-  console.log("Saved refresh token to database");
 
   // ✅ Use dynamic cookie options for Safari compatibility
   const options = getCookieOptions(req);
-  console.log("Cookie options:", options);
 
   return res
     .status(200)
@@ -441,37 +433,26 @@ const changePassword = asyncHandler(async (req, res) => {
 });
 
 const refreshUserToken = asyncHandler(async (req, res) => {
-  console.log("=== REFRESH TOKEN DEBUG INFO ===");
-  console.log("Cookies received:", req.cookies);
-  console.log("Refresh token from cookie:", req.cookies.refreshToken);
-  
   const refreshTokenFromCookie = req.cookies.refreshToken;
   if (!refreshTokenFromCookie) {
-    console.log("❌ No refresh token found in cookies");
     throw new ApiError(401, "Refresh token not found");
   }
 
-  console.log("Searching for user with refreshToken:", refreshTokenFromCookie);
+  // Let's also try to find by refreshToken to be sure
   const user = await User.findOne({ refreshToken: refreshTokenFromCookie });
-  console.log("User found:", user ? "Yes" : "No");
-  
   if (!user) {
-    console.log("❌ No user found with this refresh token");
+    // Extra debugging - let's see what tokens exist in the database
+    const usersWithTokens = await User.find({ refreshToken: { $exists: true, $ne: null } }, 'email refreshToken');
+    console.log("Users with refresh tokens in DB:", usersWithTokens);
     throw new ApiError(401, "Invalid refresh token");
   }
 
-  console.log("Token expiry:", user.refreshTokenExpireAt);
-  console.log("Current time:", new Date());
-  console.log("Token expired:", user.refreshTokenExpireAt < new Date());
-  
   if (user.refreshTokenExpireAt < new Date()) {
-    console.log("❌ Refresh token expired");
     throw new ApiError(401, "Refresh token expired. Please log in again.");
   }
 
   // Generate new tokens
   const { accessToken, refreshToken } = user.generateJWT();
-  console.log("Generated new tokens");
 
   // Database mein naya refreshToken save karein
   user.refreshToken = refreshToken;
@@ -479,12 +460,9 @@ const refreshUserToken = asyncHandler(async (req, res) => {
     Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN)
   );
   await user.save({ validateBeforeSave: false });
-  console.log("Saved new refresh token to database");
 
   // ✅ Use dynamic cookie options for Safari compatibility
   const options = getCookieOptions(req);
-  console.log("Cookie options:", options);
-  
   return res
     .status(200)
     .cookie("accessToken", accessToken, options)
