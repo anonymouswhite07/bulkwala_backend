@@ -165,9 +165,6 @@ const loginUser = asyncHandler(async (req, res) => {
   const options = getCookieOptions(req);
   
   console.log("✅ LOGIN SUCCESS - SENDING COOKIES");
-  console.log("Cookie Options:", options);
-  console.log("Setting accessToken cookie");
-  console.log("Setting refreshToken cookie");
   return res
     .status(200)
     .cookie("accessToken", accessToken, options)
@@ -216,9 +213,6 @@ const verifyOtpLogin = asyncHandler(async (req, res) => {
   await user.save({ validateBeforeSave: false });
   
   console.log("✅ OTP LOGIN SUCCESS - SENDING COOKIES");
-  console.log("Cookie Options:", options);
-  console.log("Setting accessToken cookie");
-  console.log("Setting refreshToken cookie");
 
   return res
     .status(200)
@@ -461,10 +455,6 @@ const refreshUserToken = asyncHandler(async (req, res) => {
   console.log("Origin:", req.headers["origin"]);
   console.log("Cookies:", req.cookies);
   console.log("Headers:", req.headers);
-  
-  // Log all cookie-related headers
-  console.log("Cookie header:", req.headers["cookie"]);
-  console.log("Set-Cookie header:", req.headers["set-cookie"]);
   
   // Accept refresh token from cookie first, then fallback to body or Authorization header.
   let refreshTokenFromCookie = req.cookies?.refreshToken;
