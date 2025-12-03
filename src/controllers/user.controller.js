@@ -153,6 +153,9 @@ const loginUser = asyncHandler(async (req, res) => {
   // ✅ Use dynamic cookie options for Safari compatibility
   const options = getCookieOptions(req);
   console.log("Cookie options:", options);
+  
+  console.log("=== EMAIL LOGIN - SETTING COOKIES ===");
+  console.log("Refresh token being set:", refreshToken ? refreshToken.substring(0, 20) + "..." : "null");
 
   return res
     .status(200)
@@ -198,6 +201,10 @@ const verifyOtpLogin = asyncHandler(async (req, res) => {
 
   // ✅ Use dynamic cookie options for Safari compatibility
   const options = getCookieOptions(req);
+  
+  console.log("=== OTP LOGIN - SETTING COOKIES ===");
+  console.log("Refresh token being set:", refreshToken ? refreshToken.substring(0, 20) + "..." : "null");
+  console.log("Cookie options:", options);
 
   return res
     .status(200)
@@ -434,8 +441,16 @@ const changePassword = asyncHandler(async (req, res) => {
 });
 
 const refreshUserToken = asyncHandler(async (req, res) => {
+  // Debug logging to understand what's happening with the refresh token requests
+  console.log("=== REFRESH TOKEN REQUEST DEBUG ===");
+  console.log("User-Agent:", req.headers["user-agent"]);
+  console.log("Origin:", req.headers["origin"]);
+  console.log("Cookies:", req.cookies);
+  console.log("All Headers:", req.headers);
+  
   const refreshTokenFromCookie = req.cookies.refreshToken;
   if (!refreshTokenFromCookie) {
+    console.log("❌ NO REFRESH TOKEN FOUND IN COOKIES");
     throw new ApiError(401, "Refresh token not found");
   }
 

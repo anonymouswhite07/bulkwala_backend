@@ -29,7 +29,10 @@ const allowedOrigins = JSON.parse(process.env.FRONTEND_URL);
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
+      // When origin is null (common on Safari/iOS), return first allowed origin
+      if (!origin) {
+        return callback(null, allowedOrigins[0]);
+      }
 
       // Normalize origins by removing trailing slashes and www
       const normalize = (url) =>
@@ -39,7 +42,7 @@ app.use(
       const cleanedList = allowedOrigins.map(normalize);
 
       if (cleanedList.includes(cleanOrigin)) {
-        return callback(null, true);
+        return callback(null, origin);
       }
 
       return callback(new Error("CORS blocked: " + origin));
@@ -62,7 +65,10 @@ app.use((req, res, next) => {
     const cleanOrigin = origin ? normalize(origin) : null;
     const cleanedList = allowedOrigins.map(normalize);
 
-    if (origin && cleanedList.includes(cleanOrigin)) {
+    // When origin is null (common on Safari/iOS), use first allowed origin
+    if (!origin) {
+      res.setHeader("Access-Control-Allow-Origin", allowedOrigins[0]);
+    } else if (cleanedList.includes(cleanOrigin)) {
       res.setHeader("Access-Control-Allow-Origin", origin);
     }
 

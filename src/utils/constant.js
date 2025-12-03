@@ -18,6 +18,7 @@ export const getCookieOptions = (req) => {
     if (userAgent.includes('iphone') || userAgent.includes('ipad') || userAgent.includes('safari')) {
       // Ensure secure is true for Safari
       options.secure = true;
+      options.sameSite = "none";
     }
   }
 
