@@ -22,25 +22,56 @@ import { globalErrorHandler } from "./middleware/globalError.middleware.js";
 const app = express();
 app.set("trust proxy", 1);
 
-// Simplified CORS configuration for better iOS/Safari compatibility
-const corsOptions = {
-  origin: JSON.parse(process.env.FRONTEND_URL),
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-};
+// Proper CORS configuration for iOS/Safari compatibility
+// Safari requires exact origin string, not array
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, Postman)
+      if (!origin) return callback(null, true);
+      
+      try {
+        const allowedOrigins = JSON.parse(process.env.FRONTEND_URL);
+        if (allowedOrigins.includes(origin)) {
+          // Return the exact origin string, not the array
+          callback(null, origin);
+        } else {
+          callback(new Error("❌ CORS blocked: " + origin));
+        }
+      } catch (err) {
+        console.error("❌ FRONTEND_URL is not a valid JSON array");
+        callback(new Error("❌ CORS configuration error"));
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Accept",
+      "Origin",
+    ],
+    exposedHeaders: ["Set-Cookie"],
+  })
+);
 
-app.use(cors(corsOptions));
-
-// Handle OPTIONS preflight requests for Safari/iOS compatibility
-// Fixed: Using middleware approach instead of route to avoid path parsing issues
+// Handle preflight for Safari/iOS (Express 5 compatible)
 app.use((req, res, next) => {
-  if (req.method === 'OPTIONS') {
-    res.header('Access-Control-Allow-Origin', req.headers.origin);
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    return res.status(200).end();
+  if (req.method === "OPTIONS") {
+    const origin = req.headers.origin;
+    const allowedOrigins = JSON.parse(process.env.FRONTEND_URL);
+
+    if (origin && allowedOrigins.includes(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+    }
+
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Origin");
+    return res.sendStatus(200);
   }
+
   next();
 });
 
