@@ -59,11 +59,18 @@ app.use((req, res, next) => {
     const normalize = (url) =>
       url.replace(/\/$/, "").replace("://www.", "://");
 
-    const cleanOrigin = origin ? normalize(origin) : null;
-    const cleanedList = allowedOrigins.map(normalize);
+    // Always set Access-Control-Allow-Origin header
+    // When origin is null/undefined (common with Safari), use the first allowed origin
+    if (!origin) {
+      // For Safari/iOS when origin is null, set to first allowed origin
+      res.setHeader("Access-Control-Allow-Origin", allowedOrigins[0]);
+    } else {
+      const cleanOrigin = normalize(origin);
+      const cleanedList = allowedOrigins.map(normalize);
 
-    if (origin && cleanedList.includes(cleanOrigin)) {
-      res.setHeader("Access-Control-Allow-Origin", origin);
+      if (cleanedList.includes(cleanOrigin)) {
+        res.setHeader("Access-Control-Allow-Origin", origin);
+      }
     }
 
     res.setHeader("Access-Control-Allow-Credentials", "true");
