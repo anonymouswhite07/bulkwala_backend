@@ -1,7 +1,7 @@
 // ===== UNIVERSAL COOKIE HANDLER =====
 export const getCookieOptions = (req) => {
-  // For cross-site cookie compatibility, we need to ensure secure=true and sameSite=none
-  // This is critical for browsers to accept and send cookies in cross-site scenarios
+  // For cross-site cookie compatibility, especially Safari/iOS
+  // We need to ensure proper settings for cross-site cookies
   
   const options = {
     httpOnly: true,
@@ -9,7 +9,8 @@ export const getCookieOptions = (req) => {
     sameSite: "none", // Required for cross-site cookies
     path: "/",
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days to match refresh token expiry
-    domain: ".vercel.app", // Match the actual domain where frontend is hosted
+    // Remove domain entirely to make cookies host-only
+    // This can help with Safari's stricter cookie policies
   };
 
   return options;
