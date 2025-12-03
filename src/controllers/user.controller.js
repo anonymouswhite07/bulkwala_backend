@@ -154,21 +154,21 @@ const loginUser = asyncHandler(async (req, res) => {
   const options = getCookieOptions(req);
   console.log("Cookie options:", options);
   
-  // Enhanced debugging for iOS Safari
-  const userAgent = req.headers["user-agent"] || '';
-  const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
-  const isSafari = /Safari/i.test(userAgent) && !/Chrome/i.test(userAgent);
-  console.log("Is iOS:", isIOS);
-  console.log("Is Safari:", isSafari);
-  
   console.log("=== EMAIL LOGIN - SETTING COOKIES ===");
   console.log("Refresh token being set:", refreshToken ? refreshToken.substring(0, 20) + "..." : "null");
 
-  return res
+  console.log("Setting cookies with options:", options);
+  console.log("Access token length:", accessToken?.length);
+  console.log("Refresh token length:", refreshToken?.length);
+  
+  const response = res
     .status(200)
     .cookie("accessToken", accessToken, options)
-    .cookie("refreshToken", refreshToken, options)
-    .json(new ApiResponse(200, user, "User logged in successfully"));
+    .cookie("refreshToken", refreshToken, options);
+    
+  console.log("Response headers after setting cookies:", response.getHeaders());
+  
+  return response.json(new ApiResponse(200, user, "User logged in successfully"));
 });
 
 const sendOtpLogin = asyncHandler(async (req, res) => {
@@ -209,22 +209,22 @@ const verifyOtpLogin = asyncHandler(async (req, res) => {
   // ✅ Use dynamic cookie options for Safari compatibility
   const options = getCookieOptions(req);
   
-  // Enhanced debugging for iOS Safari
-  const userAgent = req.headers["user-agent"] || '';
-  const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
-  const isSafari = /Safari/i.test(userAgent) && !/Chrome/i.test(userAgent);
-  console.log("Is iOS:", isIOS);
-  console.log("Is Safari:", isSafari);
-  
   console.log("=== OTP LOGIN - SETTING COOKIES ===");
   console.log("Refresh token being set:", refreshToken ? refreshToken.substring(0, 20) + "..." : "null");
   console.log("Cookie options:", options);
 
-  return res
+  console.log("Setting cookies with options:", options);
+  console.log("Access token length:", accessToken?.length);
+  console.log("Refresh token length:", refreshToken?.length);
+  
+  const response = res
     .status(200)
     .cookie("accessToken", accessToken, options)
-    .cookie("refreshToken", refreshToken, options)
-    .json(new ApiResponse(200, user, "Login successful via OTP"));
+    .cookie("refreshToken", refreshToken, options);
+    
+  console.log("Response headers after setting cookies:", response.getHeaders());
+  
+  return response.json(new ApiResponse(200, user, "Login successful via OTP"));
 });
 
 const updateUser = asyncHandler(async (req, res) => {
@@ -460,18 +460,23 @@ const refreshUserToken = asyncHandler(async (req, res) => {
   console.log("User-Agent:", req.headers["user-agent"]);
   console.log("Origin:", req.headers["origin"]);
   console.log("Cookies:", req.cookies);
+  console.log("Signed Cookies:", req.signedCookies);
   console.log("All Headers:", req.headers);
   
-  // Enhanced debugging for iOS Safari
-  const userAgent = req.headers["user-agent"] || '';
-  const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
-  const isSafari = /Safari/i.test(userAgent) && !/Chrome/i.test(userAgent);
-  console.log("Is iOS:", isIOS);
-  console.log("Is Safari:", isSafari);
+  // Also check if cookies are in the headers directly
+  console.log("Cookie header:", req.headers.cookie);
   
-  const refreshTokenFromCookie = req.cookies.refreshToken;
+  // Try to get refresh token from cookie first, then from body as fallback
+  let refreshTokenFromCookie = req.cookies.refreshToken;
+  
+  // If not in cookie, try to get from request body (fallback for Safari)
+  if (!refreshTokenFromCookie && req.body?.refreshToken) {
+    console.log("⚠️ USING REFRESH TOKEN FROM REQUEST BODY (FALLBACK)");
+    refreshTokenFromCookie = req.body.refreshToken;
+  }
+  
   if (!refreshTokenFromCookie) {
-    console.log("❌ NO REFRESH TOKEN FOUND IN COOKIES");
+    console.log("❌ NO REFRESH TOKEN FOUND IN COOKIES OR REQUEST BODY");
     throw new ApiError(401, "Refresh token not found");
   }
 
@@ -496,14 +501,23 @@ const refreshUserToken = asyncHandler(async (req, res) => {
 
   // ✅ Use dynamic cookie options for Safari compatibility
   const options = getCookieOptions(req);
-  console.log("Cookie options for refresh:", options);
-  return res
+  console.log("Setting refresh cookies with options:", options);
+  console.log("New access token length:", accessToken?.length);
+  console.log("New refresh token length:", refreshToken?.length);
+  
+  const response = res
     .status(200)
     .cookie("accessToken", accessToken, options)
-    .cookie("refreshToken", refreshToken, options)
-    .json({
-      success: true,
-    });
+    .cookie("refreshToken", refreshToken, options);
+    
+  console.log("Refresh response headers after setting cookies:", response.getHeaders());
+  
+  return response.json({
+    success: true,
+    // Include tokens in response body as additional fallback
+    accessToken: accessToken,
+    refreshToken: refreshToken
+  });
 });
 
 const logoutUser = asyncHandler(async (req, res) => {
@@ -512,15 +526,6 @@ const logoutUser = asyncHandler(async (req, res) => {
 
   // ✅ Use dynamic cookie options for Safari compatibility (must match when setting)
   const options = getCookieOptions(req);
-  
-  // Enhanced debugging for iOS Safari
-  const userAgent = req.headers["user-agent"] || '';
-  const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
-  const isSafari = /Safari/i.test(userAgent) && !/Chrome/i.test(userAgent);
-  console.log("Is iOS:", isIOS);
-  console.log("Is Safari:", isSafari);
-  console.log("Cookie options for logout:", options);
-  
   const user = await User.findById(req.user._id);
   if (user) {
     user.refreshToken = null;
@@ -528,6 +533,7 @@ const logoutUser = asyncHandler(async (req, res) => {
     await user.save({ validateBeforeSave: false });
   }
 
+  console.log("Clearing cookies with options:", options);
   res.clearCookie("accessToken", options);
   res.clearCookie("refreshToken", options);
 
