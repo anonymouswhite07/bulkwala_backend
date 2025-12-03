@@ -84,6 +84,9 @@ const userSchema = new Schema(
       token: String,
       usedAt: { type: Date, default: Date.now }
     }],
+    // Recovery token for Safari ITP issues
+    recoveryToken: String,
+    recoveryTokenExpireAt: Date,
 
     resetPasswordToken: String,
     resetPasswordExpiresAt: Date,

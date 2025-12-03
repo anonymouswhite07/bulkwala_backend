@@ -485,32 +485,79 @@ const refreshUserToken = asyncHandler(async (req, res) => {
     refreshTokenValue = req.headers.authorization.substring(7); // Remove 'Bearer '
   }
   
-  if (!refreshTokenValue) {
-    console.log("❌ NO REFRESH TOKEN FOUND IN ANY SOURCE");
-    throw new ApiError(401, "Refresh token not found");
+  // 4. Check if we have a recovery token (Safari ITP fallback)
+  let user = null;
+  if (refreshTokenValue) {
+    user = await User.findOne({ refreshToken: refreshTokenValue });
+    if (!user) {
+      // Check if it's a used token (rotation security)
+      const usedTokenUser = await User.findOne({ 
+        "usedRefreshTokens.token": refreshTokenValue 
+      });
+      
+      if (usedTokenUser) {
+        // Token reuse detected - possible attack, invalidate all tokens
+        usedTokenUser.usedRefreshTokens.push({
+          token: refreshTokenValue,
+          usedAt: new Date()
+        });
+        usedTokenUser.refreshToken = null;
+        usedTokenUser.refreshTokenExpireAt = null;
+        await usedTokenUser.save({ validateBeforeSave: false });
+        
+        console.log("🚨 REFRESH TOKEN REUSE DETECTED - SECURITY ALERT");
+        throw new ApiError(401, "Invalid refresh token. Security violation detected.");
+      }
+    }
   }
-
-  const user = await User.findOne({ refreshToken: refreshTokenValue });
-  if (!user) {
-    // Check if it's a used token (rotation security)
-    const usedTokenUser = await User.findOne({ 
-      "usedRefreshTokens.token": refreshTokenValue 
+  
+  // 5. If no refresh token found, check for recovery token
+  if (!user && req.body?.recoveryToken) {
+    console.log("🔄 ATTEMPTING RECOVERY WITH RECOVERY TOKEN");
+    user = await User.findOne({ 
+      recoveryToken: req.body.recoveryToken,
+      recoveryTokenExpireAt: { $gt: new Date() }
     });
     
-    if (usedTokenUser) {
-      // Token reuse detected - possible attack, invalidate all tokens
-      usedTokenUser.usedRefreshTokens.push({
-        token: refreshTokenValue,
-        usedAt: new Date()
-      });
-      usedTokenUser.refreshToken = null;
-      usedTokenUser.refreshTokenExpireAt = null;
-      await usedTokenUser.save({ validateBeforeSave: false });
+    if (user) {
+      console.log("✅ RECOVERY TOKEN VALID");
+      // Clear the recovery token as it's been used
+      user.recoveryToken = null;
+      user.recoveryTokenExpireAt = null;
+      await user.save({ validateBeforeSave: false });
       
-      console.log("🚨 REFRESH TOKEN REUSE DETECTED - SECURITY ALERT");
-      throw new ApiError(401, "Invalid refresh token. Security violation detected.");
+      // Generate new tokens
+      const { accessToken, refreshToken } = user.generateJWT();
+      
+      // Save new refresh token
+      user.refreshToken = refreshToken;
+      user.refreshTokenExpireAt = new Date(
+        Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN)
+      );
+      await user.save({ validateBeforeSave: false });
+      
+      // Return new tokens
+      const options = getCookieOptions(req);
+      const response = res
+        .status(200)
+        .cookie("accessToken", accessToken, options)
+        .cookie("refreshToken", refreshToken, options);
+      
+      return response.json({
+        success: true,
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        message: "Tokens refreshed using recovery token"
+      });
     }
-    
+  }
+  
+  if (!refreshTokenValue && !user) {
+    console.log("❌ NO REFRESH TOKEN OR RECOVERY TOKEN FOUND");
+    throw new ApiError(401, "Refresh token or recovery token not found");
+  }
+  
+  if (!user) {
     throw new ApiError(401, "Invalid refresh token");
   }
 
@@ -681,6 +728,30 @@ const rejectSeller = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "Seller application rejected"));
 });
 
+// Generate recovery token for Safari ITP issues
+const generateRecoveryToken = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  // Generate a short-lived recovery token
+  const recoveryToken = jwt.sign(
+    { _id: user._id },
+    process.env.REFRESH_TOKEN_SECRET,
+    { expiresIn: "5m" } // 5 minute expiry
+  );
+
+  // Save recovery token to user document
+  user.recoveryToken = recoveryToken;
+  user.recoveryTokenExpireAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+  await user.save({ validateBeforeSave: false });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, { recoveryToken }, "Recovery token generated successfully"));
+});
+
 export {
   getAllUsers,
   registerUser,
@@ -703,4 +774,5 @@ export {
   rejectSeller,
   sendOtpLogin,
   verifyOtpLogin,
+  generateRecoveryToken,
 };
