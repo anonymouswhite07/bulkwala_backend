@@ -165,6 +165,9 @@ const loginUser = asyncHandler(async (req, res) => {
   const options = getCookieOptions(req);
   
   console.log("✅ LOGIN SUCCESS - SENDING COOKIES");
+  console.log("Cookie Options:", options);
+  console.log("Setting accessToken cookie");
+  console.log("Setting refreshToken cookie");
   return res
     .status(200)
     .cookie("accessToken", accessToken, options)
@@ -213,9 +216,9 @@ const verifyOtpLogin = asyncHandler(async (req, res) => {
   await user.save({ validateBeforeSave: false });
   
   console.log("✅ OTP LOGIN SUCCESS - SENDING COOKIES");
-
-  // ✅ Use dynamic cookie options for Safari compatibility
-  const options = getCookieOptions(req);
+  console.log("Cookie Options:", options);
+  console.log("Setting accessToken cookie");
+  console.log("Setting refreshToken cookie");
 
   return res
     .status(200)
