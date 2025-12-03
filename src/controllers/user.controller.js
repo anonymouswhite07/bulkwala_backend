@@ -148,6 +148,21 @@ const loginUser = asyncHandler(async (req, res) => {
   user.refreshTokenExpireAt = new Date(
     Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN)
   );
+  
+  // Generate recovery token for Safari ITP compatibility
+  let recoveryToken = null;
+  if (req.headers['user-agent'] && /^((?!chrome|android).)*safari/i.test(req.headers['user-agent'])) {
+    recoveryToken = jwt.sign(
+      { _id: user._id },
+      process.env.REFRESH_TOKEN_SECRET,
+      { expiresIn: "5m" } // 5 minute expiry
+    );
+    
+    // Save recovery token to user document
+    user.recoveryToken = recoveryToken;
+    user.recoveryTokenExpireAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+  }
+  
   await user.save({ validateBeforeSave: false });
 
   // ✅ Use dynamic cookie options for Safari compatibility
@@ -168,7 +183,13 @@ const loginUser = asyncHandler(async (req, res) => {
     
   console.log("Response headers after setting cookies:", response.getHeaders());
   
-  return response.json(new ApiResponse(200, user, "User logged in successfully"));
+  // Include recovery token in response for Safari users
+  const responseData = { user };
+  if (recoveryToken) {
+    responseData.recoveryToken = recoveryToken;
+  }
+  
+  return response.json(new ApiResponse(200, responseData, "User logged in successfully"));
 });
 
 const sendOtpLogin = asyncHandler(async (req, res) => {
@@ -203,6 +224,20 @@ const verifyOtpLogin = asyncHandler(async (req, res) => {
   user.refreshTokenExpireAt = new Date(
     Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN)
   );
+  
+  // Generate recovery token for Safari ITP compatibility
+  let recoveryToken = null;
+  if (req.headers['user-agent'] && /^((?!chrome|android).)*safari/i.test(req.headers['user-agent'])) {
+    recoveryToken = jwt.sign(
+      { _id: user._id },
+      process.env.REFRESH_TOKEN_SECRET,
+      { expiresIn: "5m" } // 5 minute expiry
+    );
+    
+    // Save recovery token to user document
+    user.recoveryToken = recoveryToken;
+    user.recoveryTokenExpireAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+  }
 
   await user.save({ validateBeforeSave: false });
 
@@ -224,7 +259,13 @@ const verifyOtpLogin = asyncHandler(async (req, res) => {
     
   console.log("Response headers after setting cookies:", response.getHeaders());
   
-  return response.json(new ApiResponse(200, user, "Login successful via OTP"));
+  // Include recovery token in response for Safari users
+  const responseData = { user };
+  if (recoveryToken) {
+    responseData.recoveryToken = recoveryToken;
+  }
+  
+  return response.json(new ApiResponse(200, responseData, "Login successful via OTP"));
 });
 
 const updateUser = asyncHandler(async (req, res) => {
@@ -728,30 +769,6 @@ const rejectSeller = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "Seller application rejected"));
 });
 
-// Generate recovery token for Safari ITP issues
-const generateRecoveryToken = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id);
-  if (!user) {
-    throw new ApiError(404, "User not found");
-  }
-
-  // Generate a short-lived recovery token
-  const recoveryToken = jwt.sign(
-    { _id: user._id },
-    process.env.REFRESH_TOKEN_SECRET,
-    { expiresIn: "5m" } // 5 minute expiry
-  );
-
-  // Save recovery token to user document
-  user.recoveryToken = recoveryToken;
-  user.recoveryTokenExpireAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-  await user.save({ validateBeforeSave: false });
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, { recoveryToken }, "Recovery token generated successfully"));
-});
-
 export {
   getAllUsers,
   registerUser,
@@ -774,5 +791,4 @@ export {
   rejectSeller,
   sendOtpLogin,
   verifyOtpLogin,
-  generateRecoveryToken,
 };

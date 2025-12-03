@@ -21,7 +21,6 @@ import {
   verifyOtpLogin,
   resendVerifyCode,
   deleteAddress,
-  generateRecoveryToken,
 } from "../controllers/user.controller.js";
 import { validateData } from "../middleware/validate.js";
 import {
@@ -80,6 +79,5 @@ router
 
 router.route("/sellers/reject/:userid").put(isLoggedIn, isAdmin, rejectSeller);
 router.route("/").get(isLoggedIn, isAdmin, getAllUsers);
-router.route("/generate-recovery-token").post(isLoggedIn, generateRecoveryToken);
 
 export default router;
