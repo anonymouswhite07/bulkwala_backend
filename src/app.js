@@ -23,17 +23,26 @@ const app = express();
 app.set("trust proxy", 1);
 
 // Simplified CORS configuration for better iOS/Safari compatibility
-app.use(
-  cors({
-    origin: JSON.parse(process.env.FRONTEND_URL),
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  })
-);
+const corsOptions = {
+  origin: JSON.parse(process.env.FRONTEND_URL),
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+};
+
+app.use(cors(corsOptions));
 
 // Handle OPTIONS preflight requests for Safari/iOS compatibility
-// Fixed: Changed from "*" to "/api/*" to avoid path parsing issues
-app.options("/api/*", cors());
+// Fixed: Using middleware approach instead of route to avoid path parsing issues
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    res.header('Access-Control-Allow-Origin', req.headers.origin);
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    return res.status(200).end();
+  }
+  next();
+});
 
 // Configure morgan to skip logging 401 errors using stream (better performance)
 app.use(
