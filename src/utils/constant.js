@@ -1,25 +1,16 @@
 // ===== UNIVERSAL COOKIE HANDLER =====
 export const getCookieOptions = (req) => {
-  const isProd = process.env.NODE_ENV === "production";
-
-  // Enhanced cookie options for better iOS Safari compatibility
+  // Set secure cookie options for all environments
   const options = {
     httpOnly: true,
-    secure: isProd, // required for SameSite=None
-    sameSite: "None", // allows cross-site cookies (bulkwala.com → render.com)
+    secure: true, // Always true for consistent behavior across all environments
+    sameSite: "none", // Allows cross-site cookies (bulkwala.com → render.com)
     path: "/", // accessible everywhere
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   };
 
-  // Additional iOS-specific handling
-  if (req.headers && req.headers['user-agent']) {
-    const userAgent = req.headers['user-agent'].toLowerCase();
-    // For iOS Safari, we might need to adjust cookie settings
-    if (userAgent.includes('iphone') || userAgent.includes('ipad') || userAgent.includes('safari')) {
-      // Ensure secure is true for Safari
-      options.secure = true;
-    }
-  }
+  // Removed iOS-specific handling to ensure consistent behavior across all devices
+  // Previously had user-agent detection for iOS Safari but now using uniform settings
 
   return options;
 };
