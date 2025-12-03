@@ -1,17 +1,15 @@
 // ===== UNIVERSAL COOKIE HANDLER =====
 export const getCookieOptions = (req) => {
-  // For iOS Safari compatibility, we need to ensure secure=true and sameSite=none
-  // in production environments, regardless of the request protocol
+  // For cross-site cookie compatibility, we need to ensure secure=true and sameSite=none
+  // This is critical for browsers to accept and send cookies in cross-site scenarios
   
-  // Always use secure cookies for consistent behavior across all environments
-  // This is critical for iOS Safari to accept and send cookies with SameSite=None
   const options = {
     httpOnly: true,
-    secure: true, // Always true for consistent behavior across all environments
-    sameSite: "none", // Required for iOS Safari cross-site cookies
+    secure: true, // Always true for HTTPS connections
+    sameSite: "none", // Required for cross-site cookies
     path: "/",
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days to match refresh token expiry
-    domain: ".bulkwala.com", // Share cookies across subdomains
+    domain: ".vercel.app", // Match the actual domain where frontend is hosted
   };
 
   return options;
