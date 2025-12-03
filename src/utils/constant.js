@@ -1,17 +1,22 @@
 // ===== UNIVERSAL COOKIE HANDLER =====
 export const getCookieOptions = (req) => {
-  // Set secure cookie options for all environments
+  // Decide whether cookie should be secure
+  const forwardedProto = (req && req.headers && req.headers["x-forwarded-proto"]) || "";
+  const isSecureRequest = (req && req.secure) || forwardedProto.includes("https") || process.env.NODE_ENV === "production";
+
+  // Allow optional cookie domain via env; if not set, cookie will be host-only which is usually correct
+  const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
+
   const options = {
     httpOnly: true,
-    secure: true, // Always true for consistent behavior across all environments
-    sameSite: "none", // Allows cross-site cookies (bulkwala.com → render.com)
-    path: "/", // accessible everywhere
+    secure: Boolean(isSecureRequest),
+    // Use 'none' for cross-site cookies in production where secure=true is expected.
+    // Use 'lax' during local development to avoid secure cookie issues over http.
+    sameSite: isSecureRequest ? "none" : "lax",
+    path: "/",
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    domain: ".bulkwala.com" // Share cookies across subdomains
+    domain: cookieDomain,
   };
-
-  // Removed iOS-specific handling to ensure consistent behavior across all devices
-  // Previously had user-agent detection for iOS Safari but now using uniform settings
 
   return options;
 };

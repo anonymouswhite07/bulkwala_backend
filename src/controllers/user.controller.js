@@ -443,7 +443,25 @@ const changePassword = asyncHandler(async (req, res) => {
 });
 
 const refreshUserToken = asyncHandler(async (req, res) => {
-  const refreshTokenFromCookie = req.cookies.refreshToken;
+  // Accept refresh token from cookie first, then fallback to body or Authorization header.
+  let refreshTokenFromCookie = req.cookies?.refreshToken;
+  let tokenSource = "cookie";
+
+  if (!refreshTokenFromCookie) {
+    // Try request body
+    if (req.body && req.body.refreshToken) {
+      refreshTokenFromCookie = req.body.refreshToken;
+      tokenSource = "body";
+    } else if (req.headers && req.headers.authorization) {
+      // Try Authorization: Bearer <token>
+      const auth = req.headers.authorization;
+      if (auth.startsWith("Bearer ")) {
+        refreshTokenFromCookie = auth.split(" ")[1];
+        tokenSource = "authorization header";
+      }
+    }
+  }
+
   if (!refreshTokenFromCookie) {
     throw new ApiError(401, "Refresh token not found");
   }
@@ -465,6 +483,7 @@ const refreshUserToken = asyncHandler(async (req, res) => {
     
     console.log("=== REFRESH TOKEN ISSUE DEBUG ===");
     console.log("Token from cookie:", refreshTokenFromCookie);
+    console.log("Token source:", tokenSource);
     console.log("Total users with tokens:", usersWithTokens.length);
     
     // Log all tokens (first 10 chars for privacy)
