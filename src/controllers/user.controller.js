@@ -462,6 +462,10 @@ const refreshUserToken = asyncHandler(async (req, res) => {
   console.log("Cookies:", req.cookies);
   console.log("Headers:", req.headers);
   
+  // Log all cookie-related headers
+  console.log("Cookie header:", req.headers["cookie"]);
+  console.log("Set-Cookie header:", req.headers["set-cookie"]);
+  
   // Accept refresh token from cookie first, then fallback to body or Authorization header.
   let refreshTokenFromCookie = req.cookies?.refreshToken;
   let tokenSource = "cookie";
