@@ -4,6 +4,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { getCookieOptions } from "../utils/constant.js";
 import crypto from "crypto";
+import jwt from "jsonwebtoken";
 import {
   sendResetPasswordEmail,
   sendVerificationEmail,
