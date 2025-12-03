@@ -7,6 +7,7 @@ export const getCookieOptions = (req) => {
     sameSite: "none", // Allows cross-site cookies (bulkwala.com → render.com)
     path: "/", // accessible everywhere
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    domain: ".bulkwala.com" // Share cookies across subdomains
   };
 
   // Removed iOS-specific handling to ensure consistent behavior across all devices
