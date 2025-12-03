@@ -1,7 +1,8 @@
 // ===== UNIVERSAL COOKIE HANDLER =====
 export const getCookieOptions = (req) => {
-  // For cross-site cookie compatibility, especially Safari/iOS
-  // We need to ensure proper settings for cross-site cookies
+  // For maximum compatibility across browsers
+  // Remove domain to make cookies host-only
+  // This can help with cross-site cookie restrictions
   
   const options = {
     httpOnly: true,
@@ -9,7 +10,6 @@ export const getCookieOptions = (req) => {
     sameSite: "none", // Required for cross-site cookies
     path: "/",
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days to match refresh token expiry
-    domain: ".onrender.com", // Match the actual backend domain
   };
 
   return options;
