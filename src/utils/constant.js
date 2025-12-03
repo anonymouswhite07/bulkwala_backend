@@ -9,8 +9,7 @@ export const getCookieOptions = (req) => {
     sameSite: "none", // Required for cross-site cookies
     path: "/",
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days to match refresh token expiry
-    // Remove domain entirely to make cookies host-only
-    // This can help with Safari's stricter cookie policies
+    domain: ".onrender.com", // Match the actual backend domain
   };
 
   return options;
