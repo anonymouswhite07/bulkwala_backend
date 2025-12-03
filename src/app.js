@@ -32,7 +32,8 @@ app.use(
 );
 
 // Handle OPTIONS preflight requests for Safari/iOS compatibility
-app.options("*", cors());
+// Fixed: Changed from "*" to "/api/*" to avoid path parsing issues
+app.options("/api/*", cors());
 
 // Configure morgan to skip logging 401 errors using stream (better performance)
 app.use(
