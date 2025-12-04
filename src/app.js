@@ -32,7 +32,14 @@ try {
 } catch (e) {
   console.error("Invalid FRONTEND_URL format, using defaults");
   allowedOrigins = [
-    "https://frontendbulkwala.vercel.app", 
+    "https://frontendbulkwala.vercel.app",
+    "https://bulkwala-frontend.vercel.app",
+    "https://bulkwalafrontend.vercel.app",
+    "https://frontendbulkwala-j4dxus8kq-anonymouswhite07s-projects.vercel.app",
+    "https://bulkwala.com",
+    "http://bulkwala.com",
+    "https://www.bulkwala.com",
+    "http://www.bulkwala.com",
     "http://localhost:5173",
     "http://localhost:3000"
   ];
@@ -40,12 +47,13 @@ try {
 
 console.log("Allowed Origins:", allowedOrigins);
 
-// ✅ Enhanced CORS configuration for Safari compatibility
-app.use(cors({
+// ✅ Enhanced CORS configuration for cross-browser compatibility
+const corsOptions = {
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, curl, Safari, etc.)
     if (!origin) {
-      return callback(null, true);
+      // For Safari requests with no origin, allow the first allowed origin
+      return callback(null, allowedOrigins[0]);
     }
     
     // Check if origin is in allowed list
@@ -63,19 +71,25 @@ app.use(cors({
   credentials: true, // ✅ Critical for cookie handling
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
-  exposedHeaders: ["Authorization"]
-}));
+  exposedHeaders: ["Authorization"],
+  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
+};
 
-// ✅ Handle preflight OPTIONS requests - Safari needs these headers
+app.use(cors(corsOptions));
+
+// ✅ Handle preflight OPTIONS requests and set essential headers
 app.use((req, res, next) => {
   // Set essential headers for all requests (not just OPTIONS)
   const origin = req.headers.origin;
   
   if (origin && (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app'))) {
     res.setHeader("Access-Control-Allow-Origin", origin);
+  } else if (!origin) {
+    // For Safari requests with no origin, use the first allowed origin
+    res.setHeader("Access-Control-Allow-Origin", allowedOrigins[0]);
   }
   
-  // ✅ Essential headers for Safari cookie compatibility
+  // ✅ Essential headers for cross-browser cookie compatibility
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Vary", "Origin"); // ✅ Critical for Safari - prevents caching issues
   
