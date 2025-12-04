@@ -31,81 +31,61 @@ try {
   }
 } catch (e) {
   console.error("Invalid FRONTEND_URL format, using defaults");
-  allowedOrigins = ["https://frontendbulkwala.vercel.app", "http://localhost:5173"];
+  allowedOrigins = [
+    "https://frontendbulkwala.vercel.app", 
+    "http://localhost:5173",
+    "http://localhost:3000"
+  ];
 }
 
 console.log("Allowed Origins:", allowedOrigins);
 
-// ✅ CORS configuration with credentials - optimized for Safari
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, curl, etc.)
-      if (!origin) {
-        // For Safari requests with no origin, allow the first allowed origin
-        return callback(null, allowedOrigins[0]);
-      }
-      
-      // Check if origin is in allowed list
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, origin);
-      }
-      
-      // Allow any vercel.app subdomain (for preview deployments)
-      if (origin.endsWith('.vercel.app')) {
-        return callback(null, origin);
-      }
-      
-      callback(new Error(`CORS not allowed for origin: ${origin}`));
-    },
-    credentials: true, // ✅ Critical for cookie handling
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    exposedHeaders: ["Authorization"] // Expose auth headers if needed
-  })
-);
+// ✅ Enhanced CORS configuration for Safari compatibility
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, Safari, etc.)
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, origin);
+    }
+    
+    // Allow any vercel.app subdomain (for preview deployments)
+    if (origin.endsWith('.vercel.app')) {
+      return callback(null, origin);
+    }
+    
+    callback(new Error(`CORS not allowed for origin: ${origin}`));
+  },
+  credentials: true, // ✅ Critical for cookie handling
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+  exposedHeaders: ["Authorization"]
+}));
 
 // ✅ Handle preflight OPTIONS requests - Safari needs these headers
 app.use((req, res, next) => {
-  if (req.method === "OPTIONS") {
-    const origin = req.headers.origin;
-    
-    // Set CORS headers for OPTIONS preflight
-    if (origin && (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app'))) {
-      res.setHeader("Access-Control-Allow-Origin", origin);
-    } else if (!origin) {
-      // For Safari requests with no origin, use the first allowed origin
-      res.setHeader("Access-Control-Allow-Origin", allowedOrigins[0]);
-    }
-    
-    // ✅ Essential headers for Safari cookie compatibility
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Origin");
-    // ✅ Critical for Safari - prevents caching issues with cookies
-    res.setHeader("Vary", "Origin");
-    
-    return res.sendStatus(200);
-  }
-  
-  next();
-});
-
-// ✅ Apply CORS headers to ALL responses (not just OPTIONS)
-app.use((req, res, next) => {
+  // Set essential headers for all requests (not just OPTIONS)
   const origin = req.headers.origin;
   
-  // Set CORS headers for actual requests
   if (origin && (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app'))) {
     res.setHeader("Access-Control-Allow-Origin", origin);
-  } else if (!origin) {
-    // For Safari requests with no origin, use the first allowed origin
-    res.setHeader("Access-Control-Allow-Origin", allowedOrigins[0]);
   }
   
-  // ✅ Essential headers for all responses
+  // ✅ Essential headers for Safari cookie compatibility
   res.setHeader("Access-Control-Allow-Credentials", "true");
-  // ✅ Critical for Safari - prevents caching issues with cookies
-  res.setHeader("Vary", "Origin");
+  res.setHeader("Vary", "Origin"); // ✅ Critical for Safari - prevents caching issues
+  
+  // Handle OPTIONS preflight requests
+  if (req.method === "OPTIONS") {
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Origin");
+    res.setHeader("Access-Control-Max-Age", "86400"); // Cache preflight for 24 hours
+    return res.sendStatus(204);
+  }
   
   next();
 });
