@@ -2,6 +2,7 @@ import User from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { getCookieOpts } from "../utils/cookies.js";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import {
@@ -152,26 +153,16 @@ const loginUser = asyncHandler(async (req, res) => {
   await user.save({ validateBeforeSave: false });
 
   // ✅ Set refresh token as HTTP-only cookie - CRITICAL for Safari
-  res.cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "none",
-    path: "/",
-    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-  });
+  const cookieOpts = getCookieOpts(req);
+  res.cookie("refreshToken", refreshToken, cookieOpts);
 
   // ✅ Set access token as HTTP-only cookie
-  res.cookie("accessToken", accessToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "none",
-    path: "/",
-    maxAge: 15 * 60 * 1000 // 15 minutes
-  });
+  res.cookie("accessToken", accessToken, { ...cookieOpts, maxAge: 15 * 60 * 1000 }); // 15 minutes
 
   console.log("=== EMAIL LOGIN - SETTING COOKIES ===");
   console.log("Refresh token being set:", refreshToken ? refreshToken.substring(0, 20) + "..." : "null");
   console.log("Access token being set:", accessToken ? accessToken.substring(0, 20) + "..." : "null");
+  console.log("SET-COOKIE HEADERS:", res.getHeader("Set-Cookie"));
 
   // Return user data without tokens (tokens are in cookies now)
   return res.status(200).json(new ApiResponse(200, { user }, "User logged in successfully"));
@@ -214,26 +205,16 @@ const verifyOtpLogin = asyncHandler(async (req, res) => {
   await user.save({ validateBeforeSave: false });
 
   // ✅ Set refresh token as HTTP-only cookie - CRITICAL for Safari
-  res.cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "none",
-    path: "/",
-    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-  });
+  const cookieOpts = getCookieOpts(req);
+  res.cookie("refreshToken", refreshToken, cookieOpts);
 
   // ✅ Set access token as HTTP-only cookie
-  res.cookie("accessToken", accessToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "none",
-    path: "/",
-    maxAge: 15 * 60 * 1000 // 15 minutes
-  });
+  res.cookie("accessToken", accessToken, { ...cookieOpts, maxAge: 15 * 60 * 1000 }); // 15 minutes
 
   console.log("=== OTP LOGIN - SETTING COOKIES ===");
   console.log("Refresh token being set:", refreshToken ? refreshToken.substring(0, 20) + "..." : "null");
   console.log("Access token being set:", accessToken ? accessToken.substring(0, 20) + "..." : "null");
+  console.log("SET-COOKIE HEADERS:", res.getHeader("Set-Cookie"));
 
   // Return user data without tokens (tokens are in cookies now)
   return res.status(200).json(new ApiResponse(200, { user }, "Login successful via OTP"));
@@ -545,26 +526,16 @@ const refreshUserToken = asyncHandler(async (req, res) => {
   await user.save({ validateBeforeSave: false });
 
   // ✅ Set new refresh token as HTTP-only cookie - CRITICAL for Safari
-  res.cookie("refreshToken", newRefreshToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "none",
-    path: "/",
-    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-  });
+  const cookieOpts = getCookieOpts(req);
+  res.cookie("refreshToken", newRefreshToken, cookieOpts);
 
   // ✅ Set new access token as HTTP-only cookie
-  res.cookie("accessToken", newAccessToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "none",
-    path: "/",
-    maxAge: 15 * 60 * 1000 // 15 minutes
-  });
+  res.cookie("accessToken", newAccessToken, { ...cookieOpts, maxAge: 15 * 60 * 1000 }); // 15 minutes
 
   console.log("=== REFRESH TOKEN - SETTING NEW COOKIES ===");
   console.log("New refresh token being set:", newRefreshToken ? newRefreshToken.substring(0, 20) + "..." : "null");
   console.log("New access token being set:", newAccessToken ? newAccessToken.substring(0, 20) + "..." : "null");
+  console.log("SET-COOKIE HEADERS:", res.getHeader("Set-Cookie"));
 
   // Return success response with new access token
   return res.status(200).json({
@@ -583,18 +554,9 @@ const logoutUser = asyncHandler(async (req, res) => {
   }
 
   // ✅ Clear cookies with same options used when setting them
-  res.clearCookie("accessToken", {
-    httpOnly: true,
-    secure: true,
-    sameSite: "none",
-    path: "/"
-  });
-  res.clearCookie("refreshToken", {
-    httpOnly: true,
-    secure: true,
-    sameSite: "none",
-    path: "/"
-  });
+  const cookieOpts = getCookieOpts(req);
+  res.clearCookie("accessToken", cookieOpts);
+  res.clearCookie("refreshToken", cookieOpts);
 
   return res
     .status(200)
