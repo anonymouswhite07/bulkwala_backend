@@ -150,18 +150,19 @@ const loginUser = asyncHandler(async (req, res) => {
     Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN)
   );
   
-  // Generate recovery token for Safari ITP compatibility
+  // Enhanced recovery token for Safari ITP compatibility
   let recoveryToken = null;
-  if (req.headers['user-agent'] && /^((?!chrome|android).)*safari/i.test(req.headers['user-agent'])) {
+  const userAgent = req.headers['user-agent'];
+  if (userAgent && /^((?!chrome|android).)*safari/i.test(userAgent)) {
     recoveryToken = jwt.sign(
       { _id: user._id },
       process.env.REFRESH_TOKEN_SECRET,
-      { expiresIn: "5m" } // 5 minute expiry
+      { expiresIn: "10m" } // Extended to 10 minutes for better reliability
     );
     
     // Save recovery token to user document
     user.recoveryToken = recoveryToken;
-    user.recoveryTokenExpireAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+    user.recoveryTokenExpireAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
   }
   
   await user.save({ validateBeforeSave: false });
@@ -226,18 +227,19 @@ const verifyOtpLogin = asyncHandler(async (req, res) => {
     Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN)
   );
   
-  // Generate recovery token for Safari ITP compatibility
+  // Enhanced recovery token for Safari ITP compatibility
   let recoveryToken = null;
-  if (req.headers['user-agent'] && /^((?!chrome|android).)*safari/i.test(req.headers['user-agent'])) {
+  const userAgent = req.headers['user-agent'];
+  if (userAgent && /^((?!chrome|android).)*safari/i.test(userAgent)) {
     recoveryToken = jwt.sign(
       { _id: user._id },
       process.env.REFRESH_TOKEN_SECRET,
-      { expiresIn: "5m" } // 5 minute expiry
+      { expiresIn: "10m" } // Extended to 10 minutes for better reliability
     );
     
     // Save recovery token to user document
     user.recoveryToken = recoveryToken;
-    user.recoveryTokenExpireAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+    user.recoveryTokenExpireAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
   }
 
   await user.save({ validateBeforeSave: false });
@@ -642,12 +644,32 @@ const refreshUserToken = asyncHandler(async (req, res) => {
     
   console.log("Refresh response headers after setting cookies:", response.getHeaders());
   
-  return response.json({
+  // Enhanced response for Safari compatibility
+  const responseBody = {
     success: true,
     // Include tokens in response body as additional fallback
     accessToken: accessToken,
     refreshToken: refreshToken
-  });
+  };
+  
+  // For Safari browsers, also include a new recovery token
+  const userAgent = req.headers['user-agent'];
+  if (userAgent && /^((?!chrome|android).)*safari/i.test(userAgent)) {
+    const recoveryToken = jwt.sign(
+      { _id: user._id },
+      process.env.REFRESH_TOKEN_SECRET,
+      { expiresIn: "10m" }
+    );
+    
+    // Save recovery token to user document
+    user.recoveryToken = recoveryToken;
+    user.recoveryTokenExpireAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    await user.save({ validateBeforeSave: false });
+    
+    responseBody.recoveryToken = recoveryToken;
+  }
+  
+  return response.json(responseBody);
 });
 
 const logoutUser = asyncHandler(async (req, res) => {

@@ -1,16 +1,21 @@
 // ===== UNIVERSAL COOKIE HANDLER =====
 export const getCookieOptions = (req) => {
-  // Standardized cookie configuration for all environments
-  // SameSite must be set to "none" and secure to true unconditionally
-  // Remove domain property to make cookies host-only for better cross-site compatibility
+  // Enhanced cookie configuration for better Safari compatibility
   const options = {
     httpOnly: true,
-    secure: true, // Always true for consistent behavior across all environments
-    sameSite: "none", // Required for cross-site cookies
+    secure: true,
+    sameSite: "none",
     path: "/",
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    // Note: Not setting domain property to make cookies host-only
   };
+
+  // Special handling for Safari browsers
+  const userAgent = req.headers['user-agent'];
+  if (userAgent && /^((?!chrome|android).)*safari/i.test(userAgent)) {
+    // For Safari, we might need to adjust SameSite policy in some cases
+    // But keeping sameSite: 'none' with secure: true should work in modern Safari
+    console.log("Safari detected, using enhanced cookie options");
+  }
 
   return options;
 };

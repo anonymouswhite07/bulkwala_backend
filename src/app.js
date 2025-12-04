@@ -41,7 +41,13 @@ app.use(
       const cleanOrigin = normalize(origin);
       const cleanedList = allowedOrigins.map(normalize);
 
+      // Check if origin is in the explicit allowed list
       if (cleanedList.includes(cleanOrigin)) {
+        return callback(null, origin);
+      }
+
+      // Allow any vercel.app subdomain (for preview deployments)
+      if (origin.endsWith('.vercel.app')) {
         return callback(null, origin);
       }
 
@@ -69,6 +75,9 @@ app.use((req, res, next) => {
     if (!origin) {
       res.setHeader("Access-Control-Allow-Origin", allowedOrigins[0]);
     } else if (cleanedList.includes(cleanOrigin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+    } else if (origin && origin.endsWith('.vercel.app')) {
+      // Allow any vercel.app subdomain (for preview deployments)
       res.setHeader("Access-Control-Allow-Origin", origin);
     }
 
