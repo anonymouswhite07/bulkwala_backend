@@ -163,6 +163,7 @@ const loginUser = asyncHandler(async (req, res) => {
   console.log("Refresh token being set:", refreshToken ? refreshToken.substring(0, 20) + "..." : "null");
   console.log("Access token being set:", accessToken ? accessToken.substring(0, 20) + "..." : "null");
   console.log("SET-COOKIE HEADERS:", res.getHeader("Set-Cookie"));
+  console.log("🔥 COOKIE DEBUG (LOGIN) =>", res.getHeader("Set-Cookie"));
 
   // Return user data without tokens (tokens are in cookies now)
   return res.status(200).json(new ApiResponse(200, { user }, "User logged in successfully"));
