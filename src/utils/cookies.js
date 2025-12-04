@@ -7,10 +7,10 @@ export const getCookieOpts = (req) => {
     secure: true,
     sameSite: "none",
     path: "/",
-    maxAge: 7 * 24 * 60 * 60 * 1000
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
   };
 
-  // only set domain in production when BACKEND_URL is defined and looks like https://...
+  // Only set domain in production when BACKEND_URL is defined and looks like https://...
   try {
     if (process.env.NODE_ENV === "production" && backendUrl) {
       const url = new URL(backendUrl);
@@ -20,7 +20,7 @@ export const getCookieOpts = (req) => {
     // ignore
   }
 
-  // For local development, set secure to false
+  // For local development, set secure to false to allow cookies over HTTP
   if (process.env.NODE_ENV !== "production") {
     opts.secure = false;
   }

@@ -31,17 +31,20 @@ try {
   }
 } catch (e) {
   console.error("Invalid FRONTEND_URL format, using defaults");
-  allowedOrigins = ["https://frontendbulkwala.vercel.app", "http://localhost:3000"];
+  allowedOrigins = ["https://frontendbulkwala.vercel.app", "http://localhost:5173"];
 }
 
 console.log("Allowed Origins:", allowedOrigins);
 
-// ✅ CORS configuration with credentials
+// ✅ CORS configuration with credentials - optimized for Safari
 app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (mobile apps, curl, etc.)
-      if (!origin) return callback(null, true);
+      if (!origin) {
+        // For Safari requests with no origin, allow the first allowed origin
+        return callback(null, allowedOrigins[0]);
+      }
       
       // Check if origin is in allowed list
       if (allowedOrigins.includes(origin)) {
@@ -55,8 +58,9 @@ app.use(
       
       callback(new Error(`CORS not allowed for origin: ${origin}`));
     },
-    credentials: true,
+    credentials: true, // ✅ Critical for cookie handling
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    exposedHeaders: ["Authorization"] // Expose auth headers if needed
   })
 );
 
@@ -68,6 +72,9 @@ app.use((req, res, next) => {
     // Set CORS headers for OPTIONS preflight
     if (origin && (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app'))) {
       res.setHeader("Access-Control-Allow-Origin", origin);
+    } else if (!origin) {
+      // For Safari requests with no origin, use the first allowed origin
+      res.setHeader("Access-Control-Allow-Origin", allowedOrigins[0]);
     }
     
     // ✅ Essential headers for Safari cookie compatibility
@@ -90,6 +97,9 @@ app.use((req, res, next) => {
   // Set CORS headers for actual requests
   if (origin && (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app'))) {
     res.setHeader("Access-Control-Allow-Origin", origin);
+  } else if (!origin) {
+    // For Safari requests with no origin, use the first allowed origin
+    res.setHeader("Access-Control-Allow-Origin", allowedOrigins[0]);
   }
   
   // ✅ Essential headers for all responses
@@ -114,8 +124,8 @@ app.use(
   })
 );
 app.use(cookieParser());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "16mb" })); // Increase limit for file uploads
+app.use(express.urlencoded({ extended: true, limit: "16mb" }));
 
 // Routes
 app.use("/api/users", userRoutes);
