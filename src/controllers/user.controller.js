@@ -2,7 +2,6 @@ import User from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { getCookieOptions } from "../utils/constant.js";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import {
@@ -144,54 +143,38 @@ const loginUser = asyncHandler(async (req, res) => {
 
   const { accessToken, refreshToken } = user.generateJWT();
 
-  // 🔥 FIX: SAVE REFRESH TOKEN
+  // 🔥 SAVE REFRESH TOKEN
   user.refreshToken = refreshToken;
   user.refreshTokenExpireAt = new Date(
     Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN)
   );
   
-  // Enhanced recovery token for Safari ITP compatibility
-  let recoveryToken = null;
-  const userAgent = req.headers['user-agent'];
-  if (userAgent && /^((?!chrome|android).)*safari/i.test(userAgent)) {
-    recoveryToken = jwt.sign(
-      { _id: user._id },
-      process.env.REFRESH_TOKEN_SECRET,
-      { expiresIn: "10m" } // Extended to 10 minutes for better reliability
-    );
-    
-    // Save recovery token to user document
-    user.recoveryToken = recoveryToken;
-    user.recoveryTokenExpireAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-  }
-  
   await user.save({ validateBeforeSave: false });
 
-  // ✅ Use dynamic cookie options for Safari compatibility
-  const options = getCookieOptions(req);
-  console.log("Cookie options:", options);
-  
+  // ✅ Set refresh token as HTTP-only cookie - CRITICAL for Safari
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    path: "/",
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+  });
+
+  // ✅ Set access token as HTTP-only cookie
+  res.cookie("accessToken", accessToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    path: "/",
+    maxAge: 15 * 60 * 1000 // 15 minutes
+  });
+
   console.log("=== EMAIL LOGIN - SETTING COOKIES ===");
   console.log("Refresh token being set:", refreshToken ? refreshToken.substring(0, 20) + "..." : "null");
+  console.log("Access token being set:", accessToken ? accessToken.substring(0, 20) + "..." : "null");
 
-  console.log("Setting cookies with options:", options);
-  console.log("Access token length:", accessToken?.length);
-  console.log("Refresh token length:", refreshToken?.length);
-  
-  const response = res
-    .status(200)
-    .cookie("accessToken", accessToken, options)
-    .cookie("refreshToken", refreshToken, options);
-    
-  console.log("Response headers after setting cookies:", response.getHeaders());
-  
-  // Include recovery token in response for Safari users
-  const responseData = { user };
-  if (recoveryToken) {
-    responseData.recoveryToken = recoveryToken;
-  }
-  
-  return response.json(new ApiResponse(200, responseData, "User logged in successfully"));
+  // Return user data without tokens (tokens are in cookies now)
+  return res.status(200).json(new ApiResponse(200, { user }, "User logged in successfully"));
 });
 
 const sendOtpLogin = asyncHandler(async (req, res) => {
@@ -222,53 +205,38 @@ const verifyOtpLogin = asyncHandler(async (req, res) => {
 
   const { accessToken, refreshToken } = user.generateJWT();
 
+  // 🔥 SAVE REFRESH TOKEN
   user.refreshToken = refreshToken;
   user.refreshTokenExpireAt = new Date(
     Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN)
   );
   
-  // Enhanced recovery token for Safari ITP compatibility
-  let recoveryToken = null;
-  const userAgent = req.headers['user-agent'];
-  if (userAgent && /^((?!chrome|android).)*safari/i.test(userAgent)) {
-    recoveryToken = jwt.sign(
-      { _id: user._id },
-      process.env.REFRESH_TOKEN_SECRET,
-      { expiresIn: "10m" } // Extended to 10 minutes for better reliability
-    );
-    
-    // Save recovery token to user document
-    user.recoveryToken = recoveryToken;
-    user.recoveryTokenExpireAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-  }
-
   await user.save({ validateBeforeSave: false });
 
-  // ✅ Use dynamic cookie options for Safari compatibility
-  const options = getCookieOptions(req);
-  
+  // ✅ Set refresh token as HTTP-only cookie - CRITICAL for Safari
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    path: "/",
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+  });
+
+  // ✅ Set access token as HTTP-only cookie
+  res.cookie("accessToken", accessToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    path: "/",
+    maxAge: 15 * 60 * 1000 // 15 minutes
+  });
+
   console.log("=== OTP LOGIN - SETTING COOKIES ===");
   console.log("Refresh token being set:", refreshToken ? refreshToken.substring(0, 20) + "..." : "null");
-  console.log("Cookie options:", options);
+  console.log("Access token being set:", accessToken ? accessToken.substring(0, 20) + "..." : "null");
 
-  console.log("Setting cookies with options:", options);
-  console.log("Access token length:", accessToken?.length);
-  console.log("Refresh token length:", refreshToken?.length);
-  
-  const response = res
-    .status(200)
-    .cookie("accessToken", accessToken, options)
-    .cookie("refreshToken", refreshToken, options);
-    
-  console.log("Response headers after setting cookies:", response.getHeaders());
-  
-  // Include recovery token in response for Safari users
-  const responseData = { user };
-  if (recoveryToken) {
-    responseData.recoveryToken = recoveryToken;
-  }
-  
-  return response.json(new ApiResponse(200, responseData, "Login successful via OTP"));
+  // Return user data without tokens (tokens are in cookies now)
+  return res.status(200).json(new ApiResponse(200, { user }, "Login successful via OTP"));
 });
 
 const updateUser = asyncHandler(async (req, res) => {
@@ -510,101 +478,46 @@ const refreshUserToken = asyncHandler(async (req, res) => {
   // Also check if cookies are in the headers directly
   console.log("Cookie header:", req.headers.cookie);
   
-  // Try to get refresh token from multiple sources
-  let refreshTokenValue = null;
+  // Enhanced detection for Safari browsers
+  const isSafariBrowser = req.headers['user-agent'] && /^((?!chrome|android).)*safari/i.test(req.headers['user-agent']);
+  console.log("Is Safari Browser:", isSafariBrowser);
   
-  // 1. From cookies (standard approach)
-  if (req.cookies.refreshToken) {
-    console.log("✅ USING REFRESH TOKEN FROM COOKIES");
-    refreshTokenValue = req.cookies.refreshToken;
-  }
-  // 2. From request body (fallback for Safari)
-  else if (req.body?.refreshToken) {
-    console.log("⚠️ USING REFRESH TOKEN FROM REQUEST BODY (FALLBACK)");
-    refreshTokenValue = req.body.refreshToken;
-  }
-  // 3. From Authorization header (Bearer token)
-  else if (req.headers.authorization?.startsWith('Bearer ')) {
-    console.log("⚠️ USING REFRESH TOKEN FROM AUTHORIZATION HEADER (FALLBACK)");
-    refreshTokenValue = req.headers.authorization.substring(7); // Remove 'Bearer '
+  // Get refresh token from cookies (standard approach)
+  const refreshTokenValue = req.cookies.refreshToken;
+  
+  if (!refreshTokenValue) {
+    console.log("❌ NO REFRESH TOKEN FOUND IN COOKIES");
+    throw new ApiError(401, "Refresh token not found");
   }
   
-  // 4. Check if we have a recovery token (Safari ITP fallback)
-  let user = null;
-  if (refreshTokenValue) {
-    user = await User.findOne({ refreshToken: refreshTokenValue });
-    if (!user) {
-      // Check if it's a used token (rotation security)
-      const usedTokenUser = await User.findOne({ 
-        "usedRefreshTokens.token": refreshTokenValue 
-      });
-      
-      if (usedTokenUser) {
-        // Token reuse detected - possible attack, invalidate all tokens
-        usedTokenUser.usedRefreshTokens.push({
-          token: refreshTokenValue,
-          usedAt: new Date()
-        });
-        usedTokenUser.refreshToken = null;
-        usedTokenUser.refreshTokenExpireAt = null;
-        await usedTokenUser.save({ validateBeforeSave: false });
-        
-        console.log("🚨 REFRESH TOKEN REUSE DETECTED - SECURITY ALERT");
-        throw new ApiError(401, "Invalid refresh token. Security violation detected.");
-      }
-    }
-  }
-  
-  // 5. If no refresh token found, check for recovery token
-  if (!user && req.body?.recoveryToken) {
-    console.log("🔄 ATTEMPTING RECOVERY WITH RECOVERY TOKEN");
-    user = await User.findOne({ 
-      recoveryToken: req.body.recoveryToken,
-      recoveryTokenExpireAt: { $gt: new Date() }
-    });
-    
-    if (user) {
-      console.log("✅ RECOVERY TOKEN VALID");
-      // Clear the recovery token as it's been used
-      user.recoveryToken = null;
-      user.recoveryTokenExpireAt = null;
-      await user.save({ validateBeforeSave: false });
-      
-      // Generate new tokens
-      const { accessToken, refreshToken } = user.generateJWT();
-      
-      // Save new refresh token
-      user.refreshToken = refreshToken;
-      user.refreshTokenExpireAt = new Date(
-        Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN)
-      );
-      await user.save({ validateBeforeSave: false });
-      
-      // Return new tokens
-      const options = getCookieOptions(req);
-      const response = res
-        .status(200)
-        .cookie("accessToken", accessToken, options)
-        .cookie("refreshToken", refreshToken, options);
-      
-      return response.json({
-        success: true,
-        accessToken: accessToken,
-        refreshToken: refreshToken,
-        message: "Tokens refreshed using recovery token"
-      });
-    }
-  }
-  
-  if (!refreshTokenValue && !user) {
-    console.log("❌ NO REFRESH TOKEN OR RECOVERY TOKEN FOUND");
-    throw new ApiError(401, "Refresh token or recovery token not found");
-  }
+  // Find user with this refresh token
+  let user = await User.findOne({ refreshToken: refreshTokenValue });
   
   if (!user) {
+    // Check if it's a used token (rotation security)
+    const usedTokenUser = await User.findOne({ 
+      "usedRefreshTokens.token": refreshTokenValue 
+    });
+    
+    if (usedTokenUser) {
+      // Token reuse detected - possible attack, invalidate all tokens
+      usedTokenUser.usedRefreshTokens.push({
+        token: refreshTokenValue,
+        usedAt: new Date()
+      });
+      usedTokenUser.refreshToken = null;
+      usedTokenUser.refreshTokenExpireAt = null;
+      await usedTokenUser.save({ validateBeforeSave: false });
+      
+      console.log("🚨 REFRESH TOKEN REUSE DETECTED - SECURITY ALERT");
+      throw new ApiError(401, "Invalid refresh token. Security violation detected.");
+    }
+    
+    console.log("❌ INVALID REFRESH TOKEN");
     throw new ApiError(401, "Invalid refresh token");
   }
-
+  
+  // Check token expiration
   if (user.refreshTokenExpireAt < new Date()) {
     throw new ApiError(401, "Refresh token expired. Please log in again.");
   }
@@ -622,62 +535,45 @@ const refreshUserToken = asyncHandler(async (req, res) => {
   }
 
   // Generate new tokens
-  const { accessToken, refreshToken } = user.generateJWT();
+  const { accessToken: newAccessToken, refreshToken: newRefreshToken } = user.generateJWT();
 
-  // Database mein naya refreshToken save karein
-  user.refreshToken = refreshToken;
+  // Save new refresh token to database
+  user.refreshToken = newRefreshToken;
   user.refreshTokenExpireAt = new Date(
     Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN)
   );
   await user.save({ validateBeforeSave: false });
 
-  // ✅ Use dynamic cookie options for Safari compatibility
-  const options = getCookieOptions(req);
-  console.log("Setting refresh cookies with options:", options);
-  console.log("New access token length:", accessToken?.length);
-  console.log("New refresh token length:", refreshToken?.length);
-  
-  const response = res
-    .status(200)
-    .cookie("accessToken", accessToken, options)
-    .cookie("refreshToken", refreshToken, options);
-    
-  console.log("Refresh response headers after setting cookies:", response.getHeaders());
-  
-  // Enhanced response for Safari compatibility
-  const responseBody = {
+  // ✅ Set new refresh token as HTTP-only cookie - CRITICAL for Safari
+  res.cookie("refreshToken", newRefreshToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    path: "/",
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+  });
+
+  // ✅ Set new access token as HTTP-only cookie
+  res.cookie("accessToken", newAccessToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    path: "/",
+    maxAge: 15 * 60 * 1000 // 15 minutes
+  });
+
+  console.log("=== REFRESH TOKEN - SETTING NEW COOKIES ===");
+  console.log("New refresh token being set:", newRefreshToken ? newRefreshToken.substring(0, 20) + "..." : "null");
+  console.log("New access token being set:", newAccessToken ? newAccessToken.substring(0, 20) + "..." : "null");
+
+  // Return success response with new access token
+  return res.status(200).json({
     success: true,
-    // Include tokens in response body as additional fallback
-    accessToken: accessToken,
-    refreshToken: refreshToken
-  };
-  
-  // For Safari browsers, also include a new recovery token
-  const userAgent = req.headers['user-agent'];
-  if (userAgent && /^((?!chrome|android).)*safari/i.test(userAgent)) {
-    const recoveryToken = jwt.sign(
-      { _id: user._id },
-      process.env.REFRESH_TOKEN_SECRET,
-      { expiresIn: "10m" }
-    );
-    
-    // Save recovery token to user document
-    user.recoveryToken = recoveryToken;
-    user.recoveryTokenExpireAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-    await user.save({ validateBeforeSave: false });
-    
-    responseBody.recoveryToken = recoveryToken;
-  }
-  
-  return response.json(responseBody);
+    accessToken: newAccessToken
+  });
 });
 
 const logoutUser = asyncHandler(async (req, res) => {
-  // const accessToken = req.cookies.accessToken;
-  // const refreshToken = req.cookies.refreshToken;
-
-  // ✅ Use dynamic cookie options for Safari compatibility (must match when setting)
-  const options = getCookieOptions(req);
   const user = await User.findById(req.user._id);
   if (user) {
     user.refreshToken = null;
@@ -686,13 +582,23 @@ const logoutUser = asyncHandler(async (req, res) => {
     await user.save({ validateBeforeSave: false });
   }
 
-  console.log("Clearing cookies with options:", options);
-  res.clearCookie("accessToken", options);
-  res.clearCookie("refreshToken", options);
+  // ✅ Clear cookies with same options used when setting them
+  res.clearCookie("accessToken", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    path: "/"
+  });
+  res.clearCookie("refreshToken", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    path: "/"
+  });
 
   return res
     .status(200)
-    .json(new ApiResponse(200, null, "User logged out successfully. Please clear any stored tokens from localStorage."));
+    .json(new ApiResponse(200, null, "User logged out successfully."));
 });
 
 const applyForSeller = asyncHandler(async (req, res) => {
